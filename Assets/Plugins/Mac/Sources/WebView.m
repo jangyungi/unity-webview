@@ -269,6 +269,7 @@ extern "C" {
     void _WebViewPlugin_SetRect(void *instance, int width, int height);
     void _WebViewPlugin_SetVisibility(void *instance, BOOL visibility);
     void _WebViewPlugin_LoadURL(void *instance, const char *url);
+    void _WebViewPlugin_LoadURLWithArgs(void *instance, const char *url, const char *args);
     void _WebViewPlugin_EvaluateJS(void *instance, const char *url);
     void _WebViewPlugin_Update(void *instance, int x, int y, float deltaY,
                                BOOL buttonDown, BOOL buttonPress, BOOL buttonRelease, int textureId);
@@ -306,6 +307,12 @@ void _WebViewPlugin_LoadURL(void *instance, const char *url)
 {
 	WebViewPlugin *webViewPlugin = (WebViewPlugin *)instance;
 	[webViewPlugin loadURL:url];
+}
+
+void _WebViewPlugin_LoadURLWithArgs(void *instance, const char *url, const char *args)
+{
+	WebViewPlugin *webViewPlugin = (WebViewPlugin *)instance;
+	[webViewPlugin loadURL:url withArgs:args];
 }
 
 void _WebViewPlugin_EvaluateJS(void *instance, const char *js)
