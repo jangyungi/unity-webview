@@ -6,7 +6,7 @@ unity-webview is derived from keijiro-san's unity-webview-integration https://gi
 
 ### How to use
 
-(TBW)
+Use UnityPackage/Native Webview Plugin.unitypackage
 
 ### Document
 
