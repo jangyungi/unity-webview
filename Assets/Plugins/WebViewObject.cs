@@ -115,8 +115,7 @@ public class WebViewObject : MonoBehaviour
 		LoadingFailed += onFailed;
 #if UNITY_EDITOR || UNITY_STANDALONE_OSX
 		CreateTexture(0, 0, Screen.width, Screen.height);
-		webView = _WebViewPlugin_Init(name, Screen.width, Screen.height,
-			Application.platform == RuntimePlatform.OSXEditor);
+		webView = _WebViewPlugin_Init(name, Screen.width, Screen.height,Application.platform == RuntimePlatform.OSXEditor);
 #elif UNITY_IPHONE
 		webView = _WebViewPlugin_Init(name);
 #elif UNITY_ANDROID
@@ -195,6 +194,18 @@ public class WebViewObject : MonoBehaviour
 	{
 		if (ReceiveMessage != null)
 			ReceiveMessage.Invoke(message);
+	}
+	
+	public void OnFinishedWebLoading()
+	{
+		if (LoadingComplete != null)
+			LoadingComplete.Invoke();
+	}
+	
+	public void OnFailedWebLoading()
+	{
+		if(LoadingFailed != null)
+			LoadingFailed.Invoke();
 	}
 	
 	void OnDestroy()

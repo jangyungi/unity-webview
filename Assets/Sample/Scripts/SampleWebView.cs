@@ -27,6 +27,7 @@ public class SampleWebView : MonoBehaviour
 
 	void Start()
 	{
+		
 		webViewObject =
 			(new GameObject("WebViewObject")).AddComponent<WebViewObject>();
 		webViewObject.Init((msg)=>{
