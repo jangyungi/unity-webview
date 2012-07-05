@@ -19,13 +19,16 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+/*
+ * Modified by Jang Yungi, July 2012
+ * This is derived from imkira's folk version.
+ */
+
 using UnityEngine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-
-using Callback = System.Action<string>;
 
 #if UNITY_EDITOR || UNITY_STANDALONE_OSX
 public class UnitySendMessageDispatcher
@@ -41,7 +44,14 @@ public class UnitySendMessageDispatcher
 
 public class WebViewObject : MonoBehaviour
 {
-	Callback callback;
+	//Should poll message?
+	public bool shouldDoPolling;
+	
+	//Events
+	public Action<string> ReceiveMessage;
+	public Action LoadingComplete;
+	public Action LoadingFailed;
+	
 #if UNITY_EDITOR || UNITY_STANDALONE_OSX
 	IntPtr webView;
 	bool visibility;
@@ -52,6 +62,7 @@ public class WebViewObject : MonoBehaviour
 #elif UNITY_ANDROID
 	AndroidJavaObject webView;
 	Vector2 offset;
+	bool needsInput;
 #endif
 
 #if UNITY_EDITOR || UNITY_STANDALONE_OSX
@@ -75,7 +86,9 @@ public class WebViewObject : MonoBehaviour
 	[DllImport("WebView")]
 	private static extern void _WebViewPlugin_Update(IntPtr instance,
 		int x, int y, float deltaY, bool down, bool press, bool release,
-		bool keyPress, short keyCode, string keyChars, int textureId);
+		int textureId);
+	[DllImport("WebView")]
+	private static extern void _WebViewPluginPollMessage();	
 #elif UNITY_IPHONE
 	[DllImport("__Internal")]
 	private static extern IntPtr _WebViewPlugin_Init(string gameObject);
@@ -95,23 +108,11 @@ public class WebViewObject : MonoBehaviour
 		IntPtr instance, string url);
 #endif
 
-#if UNITY_EDITOR || UNITY_STANDALONE_OSX
-	private void CreateTexture(int x, int y, int width, int height)
+	public void Init(Action<string> onRecieveMessage,Action onComplete,Action onFailed)
 	{
-		int w = 1;
-		int h = 1;
-		while (w < width)
-			w <<= 1;
-		while (h < height)
-			h <<= 1;
-		rect = new Rect(x, y, width, height);
-		texture = new Texture2D(w, h, TextureFormat.ARGB32, false);
-	}
-#endif
-
-	public void Init(Callback cb = null)
-	{
-		callback = cb;
+		ReceiveMessage += onRecieveMessage;
+		LoadingComplete += onComplete;
+		LoadingFailed += onFailed;
 #if UNITY_EDITOR || UNITY_STANDALONE_OSX
 		CreateTexture(0, 0, Screen.width, Screen.height);
 		webView = _WebViewPlugin_Init(name, Screen.width, Screen.height,
@@ -121,24 +122,7 @@ public class WebViewObject : MonoBehaviour
 #elif UNITY_ANDROID
 		offset = new Vector2(0, 0);
 		webView = new AndroidJavaObject("net.gree.unitywebview.WebViewPlugin");
-		webView.Call("Init", name);
-#endif
-	}
-
-	void OnDestroy()
-	{
-#if UNITY_EDITOR || UNITY_STANDALONE_OSX
-		if (webView == IntPtr.Zero)
-			return;
-		_WebViewPlugin_Destroy(webView);
-#elif UNITY_IPHONE
-		if (webView == IntPtr.Zero)
-			return;
-		_WebViewPlugin_Destroy(webView);
-#elif UNITY_ANDROID
-		if (webView == null)
-			return;
-		webView.Call("Destroy");
+		needsInput = webView.Call<bool>("Init", name);
 #endif
 	}
 
@@ -209,17 +193,62 @@ public class WebViewObject : MonoBehaviour
 
 	public void CallFromJS(string message)
 	{
-		if (callback != null)
-			callback(message);
+		if (ReceiveMessage != null)
+			ReceiveMessage.Invoke(message);
 	}
+	
+	void OnDestroy()
+	{
+#if UNITY_EDITOR || UNITY_STANDALONE_OSX
+		if (webView == IntPtr.Zero)
+			return;
+		_WebViewPlugin_Destroy(webView);
+#elif UNITY_IPHONE
+		if (webView == IntPtr.Zero)
+			return;
+		_WebViewPlugin_Destroy(webView);
+#elif UNITY_ANDROID
+		if (webView == null)
+			return;
+		webView.Call("Destroy");
+#endif
+	}
+
+
+	private void Update()
+	{
+#if !UNITY_EDITOR && UNITY_ANDROID
+		if (!needsInput)
+			return;
+
+		bool down = Input.GetButton("Fire1");
+		bool press = Input.GetButtonDown("Fire1");
+		bool release = Input.GetButtonUp("Fire1");
+
+		if (!down && !press && !release)
+			return;
+
+		Vector3 pos = Input.mousePosition;
+		webView.Call("Update", pos.x - offset.x,
+			Screen.height - (pos.y - offset.y), down, press, release);
+#endif
+		
+		if(shouldDoPolling)
+		{
+#if UNITY_IPHONE
+			if (webView == IntPtr.Zero)
+				return;
+			_WebViewPluginPollMessage();
+#elif UNITY_ANDROID
+			if (webView == null)
+				return;
+			//TODO: implementation
+#endif
+		}
+	}
+
 
 #if UNITY_EDITOR || UNITY_STANDALONE_OSX
-	private string inputString = "";
-	void Update()
-	{
-	  inputString += Input.inputString;
-	}
-
 	void OnGUI()
 	{
 		if (webView == IntPtr.Zero || !visibility)
@@ -230,20 +259,9 @@ public class WebViewObject : MonoBehaviour
 		bool press = Input.GetButtonDown("Fire1");
 		bool release = Input.GetButtonUp("Fire1");
 		float deltaY = Input.GetAxis("Mouse ScrollWheel");
-		bool keyPress = false;
-		string keyChars = "";
-		short keyCode = 0;
-		if (inputString.Length > 0)
-		{
-		  keyPress = true;
-		  keyChars = inputString.Substring(0, 1);
-		  keyCode = (short)inputString[0];
-		  inputString = inputString.Substring(1);
-		}
 		_WebViewPlugin_Update(webView,
 			(int)(pos.x - rect.x), (int)(pos.y - rect.y), deltaY,
-			down, press, release, keyPress, keyCode, keyChars,
-			texture.GetNativeTextureID());
+			down, press, release, texture.GetNativeTextureID());
 		GL.IssuePluginEvent((int)webView);
 		Matrix4x4 m = GUI.matrix;
 		GUI.matrix = Matrix4x4.TRS(new Vector3(0, Screen.height, 0),
@@ -251,5 +269,18 @@ public class WebViewObject : MonoBehaviour
 		GUI.DrawTexture(rect, texture);
 		GUI.matrix = m;
 	}
+	
+	private void CreateTexture(int x, int y, int width, int height)
+	{
+		int w = 1;
+		int h = 1;
+		while (w < width)
+			w <<= 1;
+		while (h < height)
+			h <<= 1;
+		rect = new Rect(x, y, width, height);
+		texture = new Texture2D(w, h, TextureFormat.ARGB32, false);
+	}
 #endif
+
 }

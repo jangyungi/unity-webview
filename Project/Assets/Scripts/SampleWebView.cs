@@ -31,11 +31,12 @@ public class SampleWebView : MonoBehaviour
 			(new GameObject("WebViewObject")).AddComponent<WebViewObject>();
 		webViewObject.Init((msg)=>{
 			Debug.Log(string.Format("CallFromJS[{0}]", msg));
-		});
+		},null,null);
 
 		webViewObject.LoadURL(Url);
 		webViewObject.SetVisibility(true);
-
+		
+		/*
 		switch (Application.platform) {
 		case RuntimePlatform.OSXEditor:
 		case RuntimePlatform.OSXPlayer:
@@ -54,12 +55,13 @@ public class SampleWebView : MonoBehaviour
 				"}, false);");
 			break;
 		}
-
+		
 		webViewObject.EvaluateJS(
 			"window.addEventListener('load', function() {" +
 			"	window.addEventListener('click', function() {" +
 			"		Unity.call('clicked');" +
 			"	}, false);" +
 			"}, false);");
+		*/
 	}
 }
