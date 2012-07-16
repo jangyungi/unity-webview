@@ -21,6 +21,8 @@
 
 package net.gree.unitywebview;
 
+import org.apache.http.util.EncodingUtils;
+
 import com.unity3d.player.UnityPlayer;
 import android.app.Activity;
 import android.os.Bundle;
@@ -111,14 +113,27 @@ public class WebViewPlugin
 
 	public void LoadURL(final String url)
 	{
-		final Activity a = UnityPlayer.currentActivity;
-		a.runOnUiThread(new Runnable() {public void run() {
-
-			mWebView.loadUrl(url);
-
-		}});
+		LoadURL(url,null);
 	}
-
+	
+	public void LoadURL(final String url, final String args)
+	{
+		final Activity a = UnityPlayer.currentActivity;
+		if(args!=null)
+		{
+			a.runOnUiThread(new Runnable() {public void run() {
+				byte[] post = EncodingUtils.getBytes(args, "BASE64");
+				mWebView.postUrl(url, post);
+			}});
+		}
+		else
+		{
+			a.runOnUiThread(new Runnable() {public void run() {
+				mWebView.loadUrl(url);
+			}});
+		}
+	}
+	
 	public void EvaluateJS(final String js)
 	{
 		final Activity a = UnityPlayer.currentActivity;
