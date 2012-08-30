@@ -106,9 +106,16 @@ static void UnitySendMessage(
 	monoMethod = 0;
 	webView = [[WebView alloc] initWithFrame:NSMakeRect(0, 0, width, height)];
 	webView.hidden = YES;
+    
 	[webView setAutoresizingMask:(NSViewWidthSizable|NSViewHeightSizable)];
 	[webView setPolicyDelegate:self];
-	gameObject = [[NSString stringWithUTF8String:gameObject_] retain];
+	
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(webViewFinishedLoading:)
+                                                 name:WebViewProgressFinishedNotification
+                                               object:webView];
+    
+    gameObject = [[NSString stringWithUTF8String:gameObject_] retain];
     
 	return self;
 }
@@ -131,6 +138,10 @@ static void UnitySendMessage(
 	} else {
 		[listener use];
 	}
+}
+
+- (void)webViewFinishedLoading:(NSNotification *)notification {
+    UnitySendMessage([gameObject UTF8String], "OnFinishedWebLoading", "");
 }
 
 - (void)setRect:(int)width height:(int)height
@@ -181,6 +192,19 @@ static void UnitySendMessage(
 {
 	NSString *jsStr = [NSString stringWithUTF8String:js];
 	[webView stringByEvaluatingJavaScriptFromString:jsStr];
+}
+
+- (char*)pollMessage
+{
+    NSString *message = [webView stringByEvaluatingJavaScriptFromString:@"unityWebMediatorInstance.pollMessage()"];
+    if (message && message.length > 0) {
+        NSLog(@"UnityWebViewPlugin: %@", message);
+        char* memory = static_cast<char*>(malloc(strlen(message.UTF8String) + 1));
+        if (memory) strcpy(memory, message.UTF8String);
+        return memory;
+    } else {
+        return NULL;
+    }
 }
 
 - (void)update:(int)x y:(int)y deltaY:(float)deltaY buttonDown:(BOOL)buttonDown buttonPress:(BOOL)buttonPress buttonRelease:(BOOL)buttonRelease textureId:(int)tId
@@ -271,6 +295,7 @@ extern "C" {
     void _WebViewPlugin_LoadURL(void *instance, const char *url);
     void _WebViewPlugin_LoadURLWithArgs(void *instance, const char *url, const char *args);
     void _WebViewPlugin_EvaluateJS(void *instance, const char *url);
+    char *_WebViewPlugin_PollMessage(void *instance);
     void _WebViewPlugin_Update(void *instance, int x, int y, float deltaY,
                                BOOL buttonDown, BOOL buttonPress, BOOL buttonRelease, int textureId);
     void UnityRenderEvent(int eventID);
@@ -317,9 +342,17 @@ void _WebViewPlugin_LoadURLWithArgs(void *instance, const char *url, const char 
 
 void _WebViewPlugin_EvaluateJS(void *instance, const char *js)
 {
+    return;
 	WebViewPlugin *webViewPlugin = (WebViewPlugin *)instance;
 	[webViewPlugin evaluateJS:js];
 }
+
+char *_WebViewPlugin_PollMessage(void *instance)
+{
+    WebViewPlugin *webViewPlugin = (WebViewPlugin *)instance;
+	return (char*)[webViewPlugin pollMessage];
+}
+
 
 void _WebViewPlugin_Update(void *instance, int x, int y, float deltaY,
                            BOOL buttonDown, BOOL buttonPress, BOOL buttonRelease, int textureId)

@@ -19,11 +19,12 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-package net.gree.unitywebview;
+package com.sjgames.webviewPlugin;
 
 import org.apache.http.util.EncodingUtils;
 
 import com.unity3d.player.UnityPlayer;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -72,6 +73,7 @@ public class WebViewPlugin
 			mWebView.setVisibility(View.GONE);
 			mWebView.setFocusable(true);
 			mWebView.setFocusableInTouchMode(true);
+			mWebView.setScrollBarStyle(WebView.SCROLLBARS_OUTSIDE_OVERLAY);
 
 			if (layout == null) {
 				layout = new FrameLayout(a);
@@ -86,7 +88,33 @@ public class WebViewPlugin
 				Gravity.NO_GRAVITY));
 
 			mWebView.setWebChromeClient(new WebChromeClient());
-			mWebView.setWebViewClient(new WebViewClient());
+			mWebView.setWebViewClient(new WebViewClient()
+			{
+			    @Override
+			    public boolean shouldOverrideUrlLoading(WebView view, String url)
+			    {
+			    	if(url.startsWith("dof://"))
+			    	{
+			    		UnityPlayer.UnitySendMessage(gameObject, "CallFromJS", url.substring(6));
+			    		return true;
+			    	}
+			    	else 
+			    	{
+			    		//To do: Mask view
+			    		return super.shouldOverrideUrlLoading(view, url);
+			    	}
+			    }
+			    @Override
+                public void onReceivedError( WebView view, int errorCode, String description, String failingUrl) 
+                {
+			    	UnityPlayer.UnitySendMessage(gameObject, "OnFailedWebLoading", "");
+                }
+
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                	UnityPlayer.UnitySendMessage(gameObject, "OnFinishedWebLoading", "");
+                }
+			});
 			mWebView.addJavascriptInterface(
 				new WebViewPluginInterface(gameObject), "Unity");
 
@@ -94,6 +122,9 @@ public class WebViewPlugin
 			webSettings.setSupportZoom(false);
 			webSettings.setJavaScriptEnabled(true);
 			webSettings.setPluginsEnabled(true);
+			
+			//For bugs
+			mWebView.loadUrl("about:blank");
 
 		}});
 	}
@@ -113,15 +144,15 @@ public class WebViewPlugin
 
 	public void LoadURL(final String url)
 	{
-		LoadURL(url,null);
+		LoadURLWithArgs(url,null);
 	}
 	
-	public void LoadURL(final String url, final String args)
+	public void LoadURLWithArgs(final String url, final String args)
 	{
 		final Activity a = UnityPlayer.currentActivity;
 		if(args!=null)
 		{
-			a.runOnUiThread(new Runnable() {public void run() {
+			a.runOnUiThread(new Runnable() {@TargetApi(5) public void run() {
 				byte[] post = EncodingUtils.getBytes(args, "BASE64");
 				mWebView.postUrl(url, post);
 			}});
